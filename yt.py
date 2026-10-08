@@ -297,7 +297,7 @@ def download_avi(
 def process_url(url: str, download_type: str, output_dir: Path, quality: str, index: int, overwrite: bool) -> None:
     print(f"  Processing: {url}")
     LOGGER.info("Processing URL: %s", url)
-    yt = YouTube(url, on_progress_callback=on_progress)
+    yt = YouTube(url, "WEB", on_progress_callback=on_progress)
     print(f"  Title: {yt.title}")
     LOGGER.info("Resolved video title: %s", yt.title)
 
@@ -344,7 +344,7 @@ def run_interactive(output_dir: Path) -> None:
                 print(f"[{index}/{len(urls)}]", end=" ")
                 process_url(url, choice, output_dir, quality, index, overwrite=False)
             except Exception as exc:
-                print(f"  Error processing {url}: {exc}")
+                print_processing_error(url, exc)
                 LOGGER.exception("Failed to process URL: %s", url)
 
         print("\nAll downloads complete!")
@@ -384,12 +384,24 @@ def run_cli(args: argparse.Namespace) -> int:
             print(f"[{index}/{len(urls)}]", end=" ")
             process_url(url, mode_value, output_dir, quality, index, overwrite=args.overwrite)
         except Exception as exc:
-            print(f"  Error processing {url}: {exc}")
+            print_processing_error(url, exc)
             LOGGER.exception("Failed to process URL: %s", url)
 
     print("\nAll downloads complete!")
     LOGGER.info("Download run completed.")
     return 0
+
+
+def print_processing_error(url: str, error: Exception) -> None:
+    error_message = str(error)
+    print(f"  Error processing {url}: {error_message}")
+
+    if "detected as a bot" in error_message.lower() or "po_token" in error_message.lower():
+        print(
+            "  Hint: pytubefix uses the WEB client with automatic PO-token support. "
+            "Update it with 'python -m pip install --upgrade pytubefix'. "
+            "If YouTube still blocks the request, see the pytubefix PO-token guide."
+        )
 
 
 def main() -> int:
