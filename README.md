@@ -70,6 +70,19 @@ Lokasi log bisa diubah dengan opsi `--log-file`:
 python yt.py --mode avi --quality 720 --urls "https://youtu.be/abc123" --log-file "D:/Logs/youtube.log"
 ```
 
+## Mengatasi pesan "request was detected as a bot"
+
+Script memakai client `WEB` pytubefix untuk mendukung pembuatan PO token otomatis.
+Pastikan pytubefix versi terbaru:
+
+```bash
+python -m pip install --upgrade pytubefix
+```
+
+YouTube masih dapat menolak permintaan berdasarkan IP atau keadaan sesi, jadi client ini
+tidak menjamin semua permintaan akan berhasil. Baca [panduan PO token pytubefix](https://pytubefix.readthedocs.io/en/latest/user/po_token.html)
+untuk penjelasan dan opsi resmi lainnya.
+
 ## Cara Pakai
 
 Saat program berjalan:
