@@ -99,13 +99,24 @@ class DownloaderApp:
         self.mode = ttk.Combobox(
             options_card,
             state="readonly",
-            values=("MP3 audio", "AVI video", "Both"),
+            values=("MP3 audio", "Video", "Both"),
         )
         self.mode.current(0)
         self.mode.grid(row=1, column=1, sticky="ew", pady=6)
 
-        ttk.Label(options_card, text="Video quality", style="Field.TLabel").grid(
+        ttk.Label(options_card, text="Video format", style="Field.TLabel").grid(
             row=2, column=0, sticky="w", padx=(0, 20), pady=6
+        )
+        self.video_format = ttk.Combobox(
+            options_card,
+            state="readonly",
+            values=("AVI", "MP4"),
+        )
+        self.video_format.current(0)
+        self.video_format.grid(row=2, column=1, sticky="ew", pady=6)
+
+        ttk.Label(options_card, text="Video quality", style="Field.TLabel").grid(
+            row=3, column=0, sticky="w", padx=(0, 20), pady=6
         )
         self.quality = ttk.Combobox(
             options_card,
@@ -113,13 +124,13 @@ class DownloaderApp:
             values=("360", "480", "720", "1080", "best"),
         )
         self.quality.set("480")
-        self.quality.grid(row=2, column=1, sticky="ew", pady=6)
+        self.quality.grid(row=3, column=1, sticky="ew", pady=6)
 
         ttk.Label(options_card, text="Save to", style="Field.TLabel").grid(
-            row=3, column=0, sticky="w", padx=(0, 20), pady=6
+            row=4, column=0, sticky="w", padx=(0, 20), pady=6
         )
         folder_row = ttk.Frame(options_card, style="Card.TFrame")
-        folder_row.grid(row=3, column=1, sticky="ew", pady=6)
+        folder_row.grid(row=4, column=1, sticky="ew", pady=6)
         folder_row.columnconfigure(0, weight=1)
         self.output_dir = tk.StringVar(value=str(DEFAULT_OUTPUT_DIR))
         ttk.Entry(folder_row, textvariable=self.output_dir).grid(row=0, column=0, sticky="ew")
@@ -133,7 +144,7 @@ class DownloaderApp:
             text="Replace files that already exist",
             variable=self.overwrite,
             style="TCheckbutton",
-        ).grid(row=4, column=0, columnspan=2, sticky="w", pady=(8, 0))
+        ).grid(row=5, column=0, columnspan=2, sticky="w", pady=(8, 0))
 
         progress_card = ttk.Frame(content, padding=16, style="Card.TFrame")
         progress_card.grid(row=4, column=0, sticky="ew", pady=(0, 14))
@@ -176,7 +187,7 @@ class DownloaderApp:
         footer.columnconfigure(0, weight=1)
         ttk.Label(
             footer,
-            text="Requires ffmpeg for MP3 conversion and AVI output",
+            text="Requires ffmpeg for MP3 conversion and video output",
             style="FooterHint.TLabel",
         ).grid(row=0, column=0, sticky="w")
         self.start_button = ttk.Button(
@@ -295,14 +306,15 @@ class DownloaderApp:
             messagebox.showerror("Invalid quality", str(exc))
             return
 
-        mode_value = {"MP3 audio": "1", "AVI video": "2", "Both": "3"}[self.mode.get()]
+        mode_value = {"MP3 audio": "1", "Video": "2", "Both": "3"}[self.mode.get()]
+        video_format = self.video_format.get().lower()
         self.start_button.configure(state="disabled")
         self.progress.configure(value=0)
         self.status.set(f"Starting {len(urls)} download(s)...")
         self._append_activity(f"Starting {len(urls)} download(s).")
         threading.Thread(
             target=self._download,
-            args=(urls, mode_value, output_dir, quality, self.overwrite.get()),
+            args=(urls, mode_value, output_dir, quality, video_format, self.overwrite.get()),
             daemon=True,
         ).start()
 
@@ -312,6 +324,7 @@ class DownloaderApp:
         mode: str,
         output_dir: Path,
         quality: str,
+        video_format: str,
         overwrite: bool,
     ) -> None:
         failures = 0
@@ -331,6 +344,7 @@ class DownloaderApp:
                         index,
                         overwrite,
                         progress_callback=lambda value: self.events.put(("progress", value)),
+                        video_format=video_format,
                     )
                     self.events.put(("activity", f"Finished processing {url}"))
                 except Exception as exc:

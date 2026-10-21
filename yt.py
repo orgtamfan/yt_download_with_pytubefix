@@ -70,7 +70,7 @@ def show_menu() -> str:
     print("      YouTube Downloader")
     print("=" * 35)
     print("  [1] Download MP3 (Audio only)")
-    print("  [2] Download AVI (Video + Audio)")
+    print("  [2] Download Video")
     print("  [3] Download Both")
     print("=" * 35)
 
@@ -89,6 +89,15 @@ def prompt_for_quality() -> str:
             return normalize_quality(value)
         except argparse.ArgumentTypeError as exc:
             print(f"  -> {exc}")
+
+
+def prompt_for_video_format() -> str:
+    print("\nAvailable video formats: mp4, avi")
+    while True:
+        value = input("Select video format [avi]: ").strip().lower() or "avi"
+        if value in {"mp4", "avi"}:
+            return value
+        print("  -> Choose mp4 or avi.")
 
 
 def extract_urls(raw_input: str) -> list[str]:
@@ -228,12 +237,13 @@ def resolve_video_stream(yt: YouTube, quality: str):
     return stream
 
 
-def download_avi(
+def download_video(
     yt: YouTube,
     output_dir: Path,
     safe_name: str,
     quality: str = "480p",
     overwrite: bool = False,
+    video_format: str = "avi",
 ) -> None:
     video_stream = resolve_video_stream(yt, quality)
     audio_stream = yt.streams.get_audio_only()
@@ -242,7 +252,7 @@ def download_avi(
         print("  -> Error: Could not find valid streams.")
         return
 
-    expected_filename = f"{safe_name}.avi"
+    expected_filename = f"{safe_name}.{video_format}"
     final_path = output_dir / expected_filename
     if final_path.exists() and not overwrite:
         print(f"  -> Skip: '{expected_filename}' already exists. Use --overwrite to replace it.")
@@ -260,7 +270,7 @@ def download_avi(
     LOGGER.info("Audio download started for video: %s", yt.title)
     _progress_log_threshold.pop(id(audio_stream), None)
     audio_path = audio_stream.download(output_path=str(output_dir), filename="temp_aud.m4a")
-    print("\n  -> Merging and converting to AVI...")
+    print(f"\n  -> Merging and converting to {video_format.upper()}...")
 
     width, height = (854, 480) if "480" in str(video_stream.resolution) else (1280, 720) if "720" in str(video_stream.resolution) else (1920, 1080)
     filter_expr = (
@@ -275,34 +285,56 @@ def download_avi(
         video_path,
         "-i",
         audio_path,
-        "-c:v",
-        "mpeg4",
-        "-vtag",
-        "xvid",
-        "-q:v",
-        "3",
         "-vf",
         filter_expr,
-        "-c:a",
-        "libmp3lame",
-        "-ar",
-        "44100",
-        "-ac",
-        "2",
-        "-b:a",
-        "128k",
-        str(final_path),
     ]
+    if video_format == "mp4":
+        command.extend(
+            [
+                "-c:v",
+                "libx264",
+                "-preset",
+                "medium",
+                "-crf",
+                "23",
+                "-pix_fmt",
+                "yuv420p",
+                "-c:a",
+                "aac",
+                "-b:a",
+                "192k",
+            ]
+        )
+    else:
+        command.extend(
+            [
+                "-c:v",
+                "mpeg4",
+                "-vtag",
+                "xvid",
+                "-q:v",
+                "3",
+                "-c:a",
+                "libmp3lame",
+                "-ar",
+                "44100",
+                "-ac",
+                "2",
+                "-b:a",
+                "128k",
+            ]
+        )
+    command.append(str(final_path))
 
     try:
         subprocess.run(command, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         print(f"  -> Saved to: '{final_path}'")
-        LOGGER.info("AVI conversion completed: %s", final_path)
+        LOGGER.info("%s conversion completed: %s", video_format.upper(), final_path)
         remove_temp_file(video_path)
         remove_temp_file(audio_path)
     except Exception as exc:
         print(f"  -> Error merging: {exc}")
-        LOGGER.exception("AVI conversion failed for %s", final_path)
+        LOGGER.exception("%s conversion failed for %s", video_format.upper(), final_path)
         remove_temp_file(video_path)
         remove_temp_file(audio_path)
 
@@ -315,6 +347,7 @@ def process_url(
     index: int,
     overwrite: bool,
     progress_callback: Callable[[float], None] | None = None,
+    video_format: str = "avi",
 ) -> None:
     print(f"  Processing: {url}")
     LOGGER.info("Processing URL: %s", url)
@@ -331,15 +364,35 @@ def process_url(
     if download_type == "1":
         download_mp3(yt, output_dir, safe_name, overwrite=overwrite)
     elif download_type == "2":
-        download_avi(yt, output_dir, safe_name, quality=quality, overwrite=overwrite)
+        download_video(
+            yt,
+            output_dir,
+            safe_name,
+            quality=quality,
+            overwrite=overwrite,
+            video_format=video_format,
+        )
     elif download_type == "3":
         download_mp3(yt, output_dir, safe_name, overwrite=overwrite)
-        download_avi(yt, output_dir, safe_name, quality=quality, overwrite=overwrite)
+        download_video(
+            yt,
+            output_dir,
+            safe_name,
+            quality=quality,
+            overwrite=overwrite,
+            video_format=video_format,
+        )
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Download YouTube audio/video files using pytubefix.")
     parser.add_argument("--mode", choices=["mp3", "avi", "both"], default=None, help="Download mode")
+    parser.add_argument(
+        "--video-format",
+        choices=["avi", "mp4"],
+        default="avi",
+        help="Video output format: avi or mp4 (default: avi)",
+    )
     parser.add_argument("--quality", default="480", help="Video quality: 360, 480, 720, 1080, best")
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR, help="Folder where files are saved")
     parser.add_argument("--overwrite", action="store_true", help="Overwrite existing files")
@@ -362,12 +415,21 @@ def run_interactive(output_dir: Path) -> None:
 
         choice = show_menu()
         quality = prompt_for_quality()
+        video_format = prompt_for_video_format() if choice in {"2", "3"} else "avi"
         print(f"\nStarting download for {len(urls)} video(s)...\n")
 
         for index, url in enumerate(urls, start=1):
             try:
                 print(f"[{index}/{len(urls)}]", end=" ")
-                process_url(url, choice, output_dir, quality, index, overwrite=False)
+                process_url(
+                    url,
+                    choice,
+                    output_dir,
+                    quality,
+                    index,
+                    overwrite=False,
+                    video_format=video_format,
+                )
             except Exception as exc:
                 print_processing_error(url, exc)
                 LOGGER.exception("Failed to process URL: %s", url)
@@ -407,7 +469,15 @@ def run_cli(args: argparse.Namespace) -> int:
     for index, url in enumerate(urls, start=1):
         try:
             print(f"[{index}/{len(urls)}]", end=" ")
-            process_url(url, mode_value, output_dir, quality, index, overwrite=args.overwrite)
+            process_url(
+                url,
+                mode_value,
+                output_dir,
+                quality,
+                index,
+                overwrite=args.overwrite,
+                video_format=args.video_format,
+            )
         except Exception as exc:
             print_processing_error(url, exc)
             LOGGER.exception("Failed to process URL: %s", url)
