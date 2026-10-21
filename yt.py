@@ -13,6 +13,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+from typing import Callable
 
 try:
     import audioop
@@ -90,13 +91,8 @@ def prompt_for_quality() -> str:
             print(f"  -> {exc}")
 
 
-def get_urls() -> list[str]:
-    print("\nEnter YouTube URLs (you can paste them concatenated together).\n")
-    raw_input = input("  URLs: ").strip()
-    if not raw_input:
-        return []
-
-    spaced_input = raw_input.replace("https", " https")
+def extract_urls(raw_input: str) -> list[str]:
+    spaced_input = raw_input.strip().replace("https", " https")
     found_links = re.findall(r"(https?://[^\s]+)", spaced_input)
     urls: list[str] = []
 
@@ -109,17 +105,34 @@ def get_urls() -> list[str]:
         if clean_link and clean_link not in urls:
             urls.append(clean_link)
 
+    return urls
+
+
+def get_urls() -> list[str]:
+    print("\nEnter YouTube URLs (you can paste them concatenated together).\n")
+    raw_input = input("  URLs: ").strip()
+    if not raw_input:
+        return []
+
+    urls = extract_urls(raw_input)
     print(f"  Detected {len(urls)} URL(s)")
     return urls
 
 
-def on_progress(stream, chunk, bytes_remaining):
+def on_progress(
+    stream,
+    chunk,
+    bytes_remaining,
+    progress_callback: Callable[[float], None] | None = None,
+):
     total_size = stream.filesize
     if not total_size:
         return
 
     bytes_downloaded = total_size - bytes_remaining
     percentage = (bytes_downloaded / total_size) * 100
+    if progress_callback:
+        progress_callback(percentage)
     print(f"\r  -> Progress: {percentage:.1f}%", end="", flush=True)
 
     progress_step = min(100, int(percentage // 10) * 10)
@@ -294,10 +307,22 @@ def download_avi(
         remove_temp_file(audio_path)
 
 
-def process_url(url: str, download_type: str, output_dir: Path, quality: str, index: int, overwrite: bool) -> None:
+def process_url(
+    url: str,
+    download_type: str,
+    output_dir: Path,
+    quality: str,
+    index: int,
+    overwrite: bool,
+    progress_callback: Callable[[float], None] | None = None,
+) -> None:
     print(f"  Processing: {url}")
     LOGGER.info("Processing URL: %s", url)
-    yt = YouTube(url, "WEB", on_progress_callback=on_progress)
+
+    def report_progress(stream, chunk, bytes_remaining) -> None:
+        on_progress(stream, chunk, bytes_remaining, progress_callback)
+
+    yt = YouTube(url, "WEB", on_progress_callback=report_progress)
     print(f"  Title: {yt.title}")
     LOGGER.info("Resolved video title: %s", yt.title)
 

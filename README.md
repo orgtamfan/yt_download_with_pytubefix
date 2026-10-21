@@ -1,132 +1,126 @@
 # YouTube Downloader
 
-Script Python sederhana untuk mengunduh video/audio dari YouTube dan menyimpannya ke folder lokal.
+A Python desktop application and command-line tool for downloading YouTube audio
+and video to a local folder.
 
-## Fitur
+## Features
 
-- Download audio hanya dalam format MP3
-- Download video dalam format AVI dengan kualitas 480p (jika stream tersedia)
-- Download sekaligus audio dan video
-- Mendukung banyak URL sekaligus dalam satu input
-- Secara otomatis mendeteksi link YouTube dari teks yang Anda tempel
-- Menghindari duplikasi file jika file dengan nama yang sama sudah ada
-- Menggunakan ffmpeg untuk konversi dan merge audio/video
+- Download audio and convert it to MP3
+- Download video and audio, then combine them into an AVI file
+- Choose video quality: 360p, 480p, 720p, 1080p, or the best available
+- Process multiple YouTube URLs in one run
+- Use the graphical interface or command line
+- Skip existing files by default, or choose to overwrite them
+- View download progress and activity in the GUI
+- Write activity logs to `downloader.log` in the output folder
 
-## Persyaratan
-
-Pastikan perangkat Anda sudah memiliki:
+## Requirements
 
 - Python 3.x
-- ffmpeg terinstal dan tersedia di PATH
-- paket `pytubefix`
+- [ffmpeg](https://ffmpeg.org/) installed and available on your `PATH`
+- The `pytubefix` Python package
+- Tkinter for the desktop GUI (usually included with Python)
 
-Install paket yang dibutuhkan:
+Install `pytubefix`: 
 
 ```bash
-pip install pytubefix
+python -m pip install pytubefix
 ```
 
-Jika ffmpeg belum terinstal, instal terlebih dahulu dan pastikan perintah `ffmpeg` bisa dijalankan dari terminal/command prompt.
+If `python` is not recognized in Windows PowerShell, use the Python Launcher:
 
-## Cara Menjalankan
-
-1. Buka file `yt.py`
-2. Sesuaikan folder tujuan jika diperlukan:
-
-```python
-DEFAULT_OUTPUT_DIR = Path("D:/Lagu")
+```powershell
+py -m pip install pytubefix
 ```
 
-3. Jalankan program dalam mode interaktif:
+Check that ffmpeg is available by running `ffmpeg -version` in a terminal.
+
+## Graphical interface
+
+From the project folder, launch the app:
+
+```bash
+python gui.py
+```
+
+On Windows, you can also run:
+
+```powershell
+py .\gui.py
+```
+
+Paste one or more URLs into the **Video Links** box, then choose a format,
+video quality, and save folder. Click **Start download** to begin. Progress and
+activity are shown in the window.
+
+The format options are:
+
+- **MP3 audio** — download audio and convert it to MP3
+- **AVI video** — download video and audio, then combine them into AVI
+- **Both** — create both an MP3 and an AVI file
+
+The quality setting applies to video downloads. The default output folder is
+`D:/Lagu`. You can browse to another folder in the app. Downloads skip files
+that already exist unless **Replace files that already exist** is selected.
+
+## Command line
+
+Run the interactive terminal version:
 
 ```bash
 python yt.py
 ```
 
-### Mode CLI (lebih profesional untuk penggunaan otomatis)
+In interactive mode, paste one or more URLs, choose a download mode, and select
+a video quality.
+
+For a direct CLI run, specify the mode and at least one URL:
 
 ```bash
-python yt.py --mode mp3 --quality 480 --urls "https://youtu.be/abc123" "https://www.youtube.com/watch?v=xyz456"
-python yt.py --mode avi --quality 720 --output-dir "D:/Lagu"
+python yt.py --mode mp3 --quality 480 --urls "https://youtu.be/abc123"
+python yt.py --mode avi --quality 720 --output-dir "D:/Lagu" --urls "https://youtu.be/abc123"
 python yt.py --mode both --quality 1080 --urls "https://youtu.be/abc123" --overwrite
 ```
 
-#### Opsi CLI yang tersedia
+Available options:
 
-- `--mode`: `mp3`, `avi`, atau `both`
-- `--quality`: `360`, `480`, `720`, `1080`, atau `best`
-- `--output-dir`: folder tujuan download
-- `--overwrite`: menimpa file yang sudah ada
-- `--urls`: daftar URL YouTube
-- `--log-file`: lokasi file log (default: `<output-dir>/downloader.log`)
+- `--mode`: `mp3`, `avi`, or `both`
+- `--quality`: `360`, `480`, `720`, `1080`, or `best` (default: `480`)
+- `--output-dir`: output folder (default: `D:/Lagu`)
+- `--overwrite`: replace files that already exist
+- `--urls`: one or more YouTube URLs
+- `--log-file`: log file path (default: `<output-dir>/downloader.log`)
 
-## Log
-
-Aktivitas download disimpan ke `downloader.log` di folder output. Log mencatat waktu,
-URL dan judul video, progres per 10%, file yang dilewati, serta hasil atau error konversi.
-Lokasi log bisa diubah dengan opsi `--log-file`:
+Example with a custom log location:
 
 ```bash
 python yt.py --mode avi --quality 720 --urls "https://youtu.be/abc123" --log-file "D:/Logs/youtube.log"
 ```
 
-## Mengatasi pesan "request was detected as a bot"
+## Logs and troubleshooting
 
-Script memakai client `WEB` pytubefix untuk mendukung pembuatan PO token otomatis.
-Pastikan pytubefix versi terbaru:
+The application writes activity to `downloader.log` in the output folder. The
+log includes processed URLs, titles, download progress, skipped files, and
+conversion results or errors.
+
+If pytubefix reports that a request was detected as a bot, upgrade it:
 
 ```bash
 python -m pip install --upgrade pytubefix
 ```
 
-YouTube masih dapat menolak permintaan berdasarkan IP atau keadaan sesi, jadi client ini
-tidak menjamin semua permintaan akan berhasil. Baca [panduan PO token pytubefix](https://pytubefix.readthedocs.io/en/latest/user/po_token.html)
-untuk penjelasan dan opsi resmi lainnya.
+YouTube may still reject requests depending on the network address or session,
+so successful access is not guaranteed. See the
+[pytubefix PO token guide](https://pytubefix.readthedocs.io/en/latest/user/po_token.html)
+for more information.
 
-## Cara Pakai
+## Notes
 
-Saat program berjalan:
+- Output filenames are cleaned to make them safer for common filesystems.
+- Video quality may fall back to the highest available stream if the requested
+  resolution is not available.
+- ffmpeg is used to convert audio to MP3 and combine video and audio into AVI.
 
-- Masukkan satu atau lebih URL YouTube
-- Bisa paste beberapa link sekaligus dalam satu baris, satu per spasi/line break
-- Pilih menu:
-  - `1` = Download MP3
-  - `2` = Download AVI (480p)
-  - `3` = Download Both (MP3 + AVI)
+## License
 
-Contoh input:
-
-```text
-https://www.youtube.com/watch?v=abc123
-https://youtu.be/xyz456
-```
-
-## Output
-
-File akan disimpan ke folder yang diatur di variabel `directory`.
-
-Secara default, folder yang digunakan adalah:
-
-```text
-D:/Lagu
-```
-
-Jika folder belum ada, program akan membuatnya otomatis.
-
-## Catatan
-
-- Nama file akan dibersihkan agar aman untuk sistem file
-- Saat memilih opsi `2` atau `3`, script akan mencoba mengambil stream video 480p dan menggabungkan dengan audio ke format AVI
-- Jika stream yang dibutuhkan tidak tersedia, program akan menampilkan pesan error yang sesuai
-
-## Penyesuaian Opsional
-
-Anda bisa mengubah pengaturan di dalam script, misalnya:
-
-- folder keluaran (`directory`)
-- kualitas video (misalnya dari 480p ke resolusi lain jika diperlukan)
-- parameter ffmpeg sesuai kebutuhan Anda
-
-## Lisensi
-
-Proyek ini bersifat open source dan dapat Anda modifikasi sesuai kebutuhan.
+This project is open source and may be modified.
